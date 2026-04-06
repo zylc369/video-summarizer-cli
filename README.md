@@ -1,2 +1,2 @@
-# video-summarizer
-video summarizer
+# video-summarizer-cli
+video summarizer cli
