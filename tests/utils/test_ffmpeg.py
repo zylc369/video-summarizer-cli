@@ -38,24 +38,23 @@ class TestRunFfmpeg:
     """Tests for run_ffmpeg function."""
 
     def test_run_ffmpeg_success(self) -> None:
-        """When FFmpeg succeeds, returns stdout."""
+        """When FFmpeg succeeds, returns empty string (stdout not consumed)."""
         with patch("src.utils.ffmpeg.check_ffmpeg_available"), patch(
             "src.utils.ffmpeg.subprocess.run"
         ) as mock_run:
             mock_result = Mock()
             mock_result.returncode = 0
-            mock_result.stdout = "FFmpeg output"
-            mock_result.stderr = ""
+            mock_result.stdout = b"FFmpeg output"
+            mock_result.stderr = b""
             mock_run.return_value = mock_result
 
             args = ["-i", "input.mp4", "output.wav"]
             result = run_ffmpeg(args)
 
-            assert result == "FFmpeg output"
+            assert result == ""
             mock_run.assert_called_once_with(
                 ["ffmpeg", "-i", "input.mp4", "output.wav"],
                 capture_output=True,
-                text=True,
                 timeout=None,
                 check=False,
             )
@@ -67,8 +66,8 @@ class TestRunFfmpeg:
         ) as mock_run:
             mock_result = Mock()
             mock_result.returncode = 1
-            mock_result.stdout = ""
-            mock_result.stderr = "Invalid data found when processing input"
+            mock_result.stdout = b""
+            mock_result.stderr = b"Invalid data found when processing input"
             mock_run.return_value = mock_result
 
             with pytest.raises(FFmpegError) as exc_info:
@@ -96,8 +95,8 @@ class TestRunFfmpeg:
         ) as mock_run:
             mock_result = Mock()
             mock_result.returncode = 0
-            mock_result.stdout = "output"
-            mock_result.stderr = ""
+            mock_result.stdout = b"output"
+            mock_result.stderr = b""
             mock_run.return_value = mock_result
 
             args = ["-i", "video.mp4", "-vn", "-acodec", "pcm_s16le", "audio.wav"]
@@ -113,8 +112,8 @@ class TestRunFfmpeg:
         ) as mock_run:
             mock_result = Mock()
             mock_result.returncode = 0
-            mock_result.stdout = "output"
-            mock_result.stderr = ""
+            mock_result.stdout = b"output"
+            mock_result.stderr = b""
             mock_run.return_value = mock_result
 
             run_ffmpeg(["-i", "input.mp4"], timeout=60)
