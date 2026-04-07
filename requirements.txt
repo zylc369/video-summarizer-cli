@@ -1,0 +1,25 @@
+# ASR
+faster-whisper>=1.0.0
+torch>=2.0.0
+
+# Zhipu AI API
+zai-sdk>=0.2.0
+
+# Video processing
+ffmpeg-python>=0.2.0
+
+# Image processing
+Pillow>=10.0.0
+imagehash>=4.3.0
+
+# CLI & Config
+pyyaml>=6.0
+rich>=13.0.0
+click>=8.0.0
+
+# System info
+psutil>=5.9.0
+
+# Testing
+pytest>=8.0.0
+pytest-mock>=3.12.0

@@ -1,0 +1,114 @@
+# ========== ASR 语音转文字配置 ==========
+asr:
+  # 可选引擎: faster_whisper / qwen3_asr / mlx_whisper
+  engine: faster_whisper
+
+  # 各引擎的配置，运行时根据 engine 字段选择对应的配置节
+  engines:
+    faster_whisper:
+      # 可选模型: large-v3-turbo / small / medium / large-v3
+      model: large-v3-turbo
+      # 可选计算精度: float16 / int8
+      compute_type: float16
+      # 可选设备: cuda / cpu / mps（auto = 自动根据环境选择）
+      device: auto
+      # 中英混合必须用 transcribe，禁止用 translate
+      task: transcribe
+      # 语言设置，null 表示自动检测
+      language: null
+      # 不同环境下的覆盖配置
+      env_overrides:
+        mac:
+          device: cpu
+          compute_type: int8
+        windows_gpu:
+          device: cuda
+          compute_type: float16
+
+    qwen3_asr:
+      model: Qwen/Qwen3-ASR-1.7B
+      # 可选量化: fp16 / q8 / q4
+      quantization: q4
+      device: auto
+      # vLLM 后端（仅 CUDA 可用）
+      backend: vllm
+      gpu_memory_utilization: 0.8
+      env_overrides:
+        mac:
+          backend: omlx
+          quantization: q8
+        windows_gpu:
+          backend: vllm
+          quantization: q4
+
+    mlx_whisper:
+      # Mac 专用，使用 MLX 框架加速
+      model: large-v3-turbo
+      # MLX 自动使用 GPU (Metal)
+      language: null
+      task: transcribe
+      env_overrides:
+        mac:
+          model: large-v3-turbo
+        windows_gpu:
+          # Windows 不支持 MLX，不应使用此引擎
+          enabled: false
+
+# ========== 关键帧提取配置 ==========
+keyframe:
+  # 提取方式: keyframe (I-frame) / interval (定时)
+  method: keyframe
+  # 输出图片格式
+  format: png
+  # 去重阈值 (0-1)，感知哈希相似度超过此值的相邻帧视为重复
+  dedup_threshold: 0.95
+  # 最大提取帧数（防止超长视频产生过多帧）
+  max_frames: 500
+
+# ========== 视觉分析配置 ==========
+visual:
+  # 可选模型: glm-4.6v-flashx / glm-4.6v-flash / glm-4.6v / glm-5v-turbo / glm-4.5v
+  model: glm-4.6v-flashx
+  # 智谱 API Key（也可通过环境变量 ZAI_API_KEY 设置）
+  api_key: null
+  # 单帧分析的最大 token 输出
+  max_tokens: 2000
+  # 并发请求数（控制 API 调用速率）
+  concurrency: 5
+  # 请求超时（秒）
+  timeout: 30
+  # 失败重试次数
+  retry: 3
+
+# ========== AI 综合总结配置 ==========
+summary:
+  # 可选模型: glm-5.1 / glm-5 / glm-5-turbo / glm-4.7 / glm-4.6 / glm-4.5-air
+  model: glm-4.7
+  # 智谱 API Key（同 visual，也可通过环境变量设置）
+  api_key: null
+  # 最大输出 token 数
+  max_tokens: 8000
+  # 请求超时（秒）
+  timeout: 120
+  # 失败重试次数
+  retry: 3
+  # 总结 Prompt 模板文件路径（相对于 config 目录）
+  # null 表示使用内置默认 Prompt
+  prompt_template: null
+
+# ========== 输出配置 ==========
+output:
+  # 输出根目录（null = 当前目录下的 output/）
+  dir: null
+  # 是否在 Markdown 中嵌入截图引用
+  include_screenshots: true
+  # 截图引用路径（相对于 Markdown 文件的路径）
+  screenshot_rel_path: ./keyframes/
+  # 是否保留中间文件（audio.wav, transcript.json 等）
+  keep_intermediate: true
+
+# ========== 日志配置 ==========
+logging:
+  level: INFO
+  # 日志格式
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
