@@ -91,6 +91,7 @@ def _build_summary_prompt(
         "You are an expert technical content summarizer. "
         "Generate a comprehensive Markdown summary of the video content based on "
         "the provided transcript and visual analysis.\n\n"
+        "IMPORTANT: You MUST write the entire summary in Chinese (简体中文).\n\n"
         "Structure the summary as follows:\n"
         "1. A title based on the video name (use # heading)\n"
         "2. An overview section (2-3 sentences summarizing the video)\n"

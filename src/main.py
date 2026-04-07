@@ -1,6 +1,7 @@
 """CLI entry point: provides summarize and env-info commands."""
 
 import tempfile
+import time
 from pathlib import Path
 
 import click
@@ -10,6 +11,9 @@ from rich.table import Table
 from src.config_loader import load_config
 from src.context import RuntimeContext
 from src.env_detector import detect_system_info
+from src.interactive import ensure_api_key
+from src.interactive import load_dotenv_if_exists
+from src.interactive import prompt_video_path
 from src.pipeline import run_pipeline
 from src.utils.logger import get_logger, setup_logging
 
@@ -22,7 +26,8 @@ def cli() -> None:
 
 
 @cli.command()
-@click.argument("video_path", type=click.Path(exists=True))
+@click.argument("video_path", required=False, default=None)
+@click.option("--interactive", "-i", is_flag=True, default=False, help="Enable interactive mode.")
 @click.option("--output", "-o", type=click.Path(), default=None, help="Output directory.")
 @click.option(
     "--asr-engine",
@@ -41,7 +46,8 @@ def cli() -> None:
 )
 @click.option("--resume", is_flag=True, default=False, help="Resume from existing artifacts.")
 def summarize(
-    video_path: str,
+    video_path: str | None,
+    interactive: bool,
     output: str | None,
     asr_engine: str | None,
     visual_model: str | None,
@@ -51,6 +57,78 @@ def summarize(
     resume: bool,
 ) -> None:
     """Summarize a video file using AI."""
+    if interactive:
+        _run_interactive_mode(video_path, output, asr_engine, visual_model, summary_model, config_path, only, resume)
+    else:
+        if not video_path:
+            console.print("[bold red]✗ 非交互模式下必须提供视频文件路径[/bold red]")
+            console.print("用法: python -m src.main summarize <video_path>")
+            console.print("或使用 [cyan]-i[/cyan] 参数进入交互模式: python -m src.main summarize -i")
+            raise SystemExit(1)
+        load_dotenv_if_exists()
+        _execute_pipeline(video_path, output, asr_engine, visual_model, summary_model, config_path, only, resume)
+
+
+def _run_interactive_mode(
+    video_path: str | None,
+    output: str | None,
+    asr_engine: str | None,
+    visual_model: str | None,
+    summary_model: str | None,
+    config_path: str | None,
+    only: str | None,
+    resume: bool,
+) -> None:
+    """Handle interactive mode: ensure API key and prompt for video path if needed."""
+    console.print("[bold cyan]🎮 交互模式[/bold cyan]\n")
+
+    ensure_api_key()
+
+    resolved_path = video_path
+    if not resolved_path:
+        path_obj = prompt_video_path()
+        if path_obj is None:
+            console.print("[bold red]✗ 未提供有效的视频文件路径，退出[/bold red]")
+            raise SystemExit(1)
+        resolved_path = str(path_obj)
+    else:
+        path_obj = Path(resolved_path).resolve()
+        if not path_obj.exists():
+            console.print(f"[bold red]✗ 文件不存在: {resolved_path}[/bold red]")
+            path_obj = prompt_video_path()
+            if path_obj is None:
+                console.print("[bold red]✗ 未提供有效的视频文件路径，退出[/bold red]")
+                raise SystemExit(1)
+            resolved_path = str(path_obj)
+
+    _execute_pipeline(resolved_path, output, asr_engine, visual_model, summary_model, config_path, only, resume)
+
+def _format_elapsed(seconds: float) -> str:
+    total = int(seconds)
+    parts: list[str] = []
+    days, remainder = divmod(total, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if days:
+        parts.append(f"{days}d")
+    if days or hours:
+        parts.append(f"{hours}h")
+    if days or hours or minutes:
+        parts.append(f"{minutes}m")
+    parts.append(f"{secs}s" if parts else f"{seconds:.1f}s")
+    return " ".join(parts)
+
+def _execute_pipeline(
+    video_path: str,
+    output: str | None,
+    asr_engine: str | None,
+    visual_model: str | None,
+    summary_model: str | None,
+    config_path: str | None,
+    only: str | None,
+    resume: bool,
+) -> None:
+    """Set up context and run the video summarization pipeline."""
     cli_overrides: dict[str, str] = {}
     if asr_engine:
         cli_overrides["asr.engine"] = asr_engine
@@ -105,13 +183,16 @@ def summarize(
     )
 
     try:
+        start_time = time.monotonic()
         summary_path = run_pipeline(
             context=context,
             video_path=Path(video_path).resolve(),
             only=only,
             resume=resume,
         )
+        elapsed = time.monotonic() - start_time
         console.print(f"\n[bold green]✓ Summary generated:[/bold green] {summary_path}")
+        console.print(f"[bold green]✓ Total time:[/bold green] {_format_elapsed(elapsed)}")
     except Exception as exc:
         logger.exception("Pipeline failed: %s", exc)
         console.print(f"\n[bold red]✗ Pipeline failed:[/bold red] {exc}")
