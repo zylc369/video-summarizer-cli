@@ -92,7 +92,7 @@ def _run_interactive_mode(
             raise SystemExit(1)
         resolved_path = str(path_obj)
     else:
-        path_obj = Path(resolved_path).resolve()
+        path_obj = Path(resolved_path).expanduser().resolve()
         if not path_obj.exists():
             console.print(f"[bold red]✗ 文件不存在: {resolved_path}[/bold red]")
             path_obj = prompt_video_path()
@@ -186,7 +186,7 @@ def _execute_pipeline(
         start_time = time.monotonic()
         summary_path = run_pipeline(
             context=context,
-            video_path=Path(video_path).resolve(),
+            video_path=Path(video_path).expanduser().resolve(),
             only=only,
             resume=resume,
         )
