@@ -11,6 +11,8 @@ from rich.table import Table
 from src.config_loader import load_config
 from src.context import RuntimeContext
 from src.env_detector import detect_system_info
+import os
+
 from src.interactive import ensure_api_key
 from src.interactive import load_dotenv_if_exists
 from src.interactive import prompt_video_path
@@ -174,6 +176,12 @@ def _execute_pipeline(
         output_dir=output_dir,
         temp_dir=temp_dir,
     )
+
+    needs_api_key = only is None or only in ("visual", "summary")
+    if needs_api_key and not os.environ.get("ZAI_API_KEY"):
+        console.print("[bold red]✗ 未检测到 ZAI_API_KEY，请通过环境变量或 .env 文件设置[/bold red]")
+        console.print("  提示: 运行 [cyan]python -m src.main summarize -i[/cyan] 进入交互模式设置 API Key")
+        raise SystemExit(1)
 
     logger.info(
         "Starting pipeline for %s (env=%s, output=%s)",
