@@ -110,12 +110,11 @@ class TestEnsureApiKey:
         with patch.dict(os.environ, {}, clear=True):
             with patch("src.interactive.load_dotenv_if_exists", return_value=False):
                 with patch("src.interactive.get_api_key_source", return_value=None):
-                    with patch("click.prompt", return_value="new-api-key"):
-                        with patch("click.confirm", return_value=False):
-                            result = ensure_api_key()
+                    with patch("src.interactive._term_input", side_effect=["new-api-key", "n"]):
+                        result = ensure_api_key()
 
-                            assert result == "new-api-key"
-                            assert os.environ.get("ZAI_API_KEY") == "new-api-key"
+                        assert result == "new-api-key"
+                        assert os.environ.get("ZAI_API_KEY") == "new-api-key"
 
     def test_prompts_and_saves_key_to_dotenv(self, tmp_path: Path) -> None:
         env_file = tmp_path / ".env"
@@ -123,10 +122,9 @@ class TestEnsureApiKey:
         with patch.dict(os.environ, {}, clear=True):
             with patch("src.interactive.load_dotenv_if_exists", return_value=False):
                 with patch("src.interactive.get_api_key_source", return_value=None):
-                    with patch("click.prompt", return_value="saved-key"):
-                        with patch("click.confirm", return_value=True):
-                            with patch("src.interactive.save_api_key_to_dotenv") as mock_save:
-                                result = ensure_api_key()
+                    with patch("src.interactive._term_input", side_effect=["saved-key", "y"]):
+                        with patch("src.interactive.save_api_key_to_dotenv") as mock_save:
+                            result = ensure_api_key()
 
         assert result == "saved-key"
         mock_save.assert_called_once_with("saved-key")
@@ -135,7 +133,7 @@ class TestEnsureApiKey:
         with patch.dict(os.environ, {}, clear=True):
             with patch("src.interactive.load_dotenv_if_exists", return_value=False):
                 with patch("src.interactive.get_api_key_source", return_value=None):
-                    with patch("click.prompt", return_value=""):
+                    with patch("src.interactive._term_input", return_value=""):
                         result = ensure_api_key()
 
         assert result is None
@@ -170,26 +168,26 @@ class TestPromptVideoPath:
         video = tmp_path / "test.mp4"
         video.write_text("fake video", encoding="utf-8")
 
-        with patch("click.prompt", return_value=str(video)):
+        with patch("src.interactive._term_input", return_value=str(video)):
             result = prompt_video_path()
 
         assert result == video.resolve()
         assert result is not None and result.exists()
 
     def test_returns_none_on_empty_input(self) -> None:
-        with patch("click.prompt", return_value=""):
+        with patch("src.interactive._term_input", return_value=""):
             result = prompt_video_path()
 
         assert result is None
 
     def test_returns_none_for_nonexistent_file(self) -> None:
-        with patch("click.prompt", return_value="/nonexistent/video.mp4"):
+        with patch("src.interactive._term_input", return_value="/nonexistent/video.mp4"):
             result = prompt_video_path()
 
         assert result is None
 
     def test_returns_none_for_directory(self, tmp_path: Path) -> None:
-        with patch("click.prompt", return_value=str(tmp_path)):
+        with patch("src.interactive._term_input", return_value=str(tmp_path)):
             result = prompt_video_path()
 
         assert result is None
@@ -198,7 +196,7 @@ class TestPromptVideoPath:
         video = tmp_path / "test.mp4"
         video.write_text("fake video", encoding="utf-8")
 
-        with patch("click.prompt", return_value=str(video)):
+        with patch("src.interactive._term_input", return_value=str(video)):
             with patch("pathlib.Path.expanduser", return_value=video):
                 result = prompt_video_path()
 

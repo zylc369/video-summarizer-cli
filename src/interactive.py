@@ -2,9 +2,11 @@
 
 import logging
 import os
+import sys
+import termios
+import tty
 from pathlib import Path
 
-import click
 from dotenv import load_dotenv
 from dotenv import set_key
 from rich.console import Console
@@ -13,6 +15,33 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 _API_KEY_ENV_VAR = "ZAI_API_KEY"
+
+
+def _ensure_canonical_terminal() -> None:
+    """确保终端处于规范模式，使 input() 能正确处理回车。
+
+    恢复 ICANON（行编辑）、ECHO（回显）、ICRNL（\\r → \\n 转换）等关键标志，
+    以修复 rich.Console 可能导致的终端模式异常。
+    """
+    if not sys.stdin.isatty():
+        return
+    try:
+        fd = sys.stdin.fileno()
+        attrs = termios.tcgetattr(fd)
+        attrs[0] |= termios.ICRNL | termios.IGNBRK
+        attrs[1] |= termios.OPOST
+        attrs[3] |= termios.ICANON | termios.ECHO | termios.ISIG
+        termios.tcsetattr(fd, termios.TCSADRAIN, attrs)
+    except (termios.error, OSError):
+        pass
+
+
+def _term_input(prompt_text: str) -> str:
+    """输出提示文本并读取用户输入，确保终端处于正确模式。"""
+    console.print(prompt_text, end="")
+    console.file.flush()
+    _ensure_canonical_terminal()
+    return input()
 
 
 def resolve_project_root() -> Path:
@@ -102,12 +131,7 @@ def ensure_api_key() -> str | None:
     console.print("\n[bold yellow]⚠ 未检测到 ZAI_API_KEY[/bold yellow]")
     console.print("智谱 API Key 是使用视觉分析和 AI 总结功能的必要条件。\n")
 
-    raw_api_key: str = click.prompt(
-        "请输入 ZAI_API_KEY",
-        type=str,
-        default="",
-        show_default=False,
-    )
+    raw_api_key = _term_input("请输入 ZAI_API_KEY: ")
 
     if not raw_api_key or not raw_api_key.strip():
         console.print("[bold red]✗ 未提供 API Key，部分功能可能不可用[/bold red]")
@@ -116,10 +140,8 @@ def ensure_api_key() -> str | None:
     api_key = raw_api_key.strip()
     os.environ[_API_KEY_ENV_VAR] = api_key
 
-    save: bool = click.confirm(
-        "是否将 API Key 保存到 .env 文件以便下次自动加载？",
-        default=True,
-    )
+    save_answer = _term_input("是否将 API Key 保存到 .env 文件以便下次自动加载？ [Y/n]: ").strip().lower()
+    save = save_answer in ("", "y", "yes")
 
     if save:
         save_api_key_to_dotenv(api_key)
@@ -150,12 +172,7 @@ def prompt_video_path() -> Path | None:
     Returns:
         视频文件路径的 Path 对象，如果用户未输入或文件不存在则返回 None。
     """
-    raw_path: str = click.prompt(
-        "请输入视频文件路径",
-        type=str,
-        default="",
-        show_default=False,
-    )
+    raw_path = _term_input("请输入视频文件路径: ")
 
     if not raw_path or not raw_path.strip():
         console.print("[bold red]✗ 未提供视频文件路径[/bold red]")
